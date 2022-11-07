@@ -11,4 +11,5 @@ The HT is inserted by adjusting CVA6's Register-Transfer-Level code, however Ast
 Astrahan's capabilities have been tested on a full-system implementation of the CVA6 core on a Genesys-2 FPGA board.
 The results showed that Astrahan does not interfere with normal system operation (unless triggered) and it does not otherwise exhibit obvious differences from a HT-free CVA6 CPU.
 
-Astrahan's design files, along with the software logic necessary to operate it will be open-sourced upon publication.
+Astrahan's design files, along with the software logic necessary to operate it, will be open-sourced upon publication.  
+Preliminary results can be seen in our poster presentation at [CHES 2022](https://ches.iacr.org/2022/) titled ["The Design and Implementation of an Open-Source Hardware Trojan for a 64-bit RISC-V CPU"](https://ches.iacr.org/2022/acceptedposters.php).
