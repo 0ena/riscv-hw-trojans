@@ -23,7 +23,9 @@ module issue_read_operands import ariane_pkg::*; #(
 )(
     input  logic                                   clk_i,    // Clock
     input  logic                                   rst_ni,   // Asynchronous reset active low
+    `ifdef MOD_TRJ_irt1
     output wire                                    is_r_opr_trj_trigger_o,
+    `endif
     // flush
     input  logic                                   flush_i,
     // stall
