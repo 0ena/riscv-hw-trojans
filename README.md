@@ -1,8 +1,7 @@
 Hardware Trojans implemented for RISC-V designs.
 
 ## HOST 2024: Towards Practical Fabrication Stage Attacks Using Interrupt-Resilient Hardware Trojans
-Update 1:
-We are releasing the Interrupt-Resilient Trojan design logic.
+In this update we are releasing the Interrupt-Resilient Trojan design logic.
 The IRTs have been tested against the [CVA6](https://github.com/openhwgroup/cva6) RISC-V micro-architecture.
 The next update will include the control software, as well as pre-build bitstreams and Linux images ready to be tested.
 For anyone to use this work, we kindly request you to cite our paper:
@@ -37,13 +36,13 @@ Bofore running the Bash script, both the risc-v toolchain and Xilinx's Vivado sh
 
 With the risc-v toolchain and Vivado in the $PATH just run:
 
-"./main.sh irtX"
+`./main.sh irtX`
 
 where irtX is either "irt1" for the IRT-1 or "irt2" for the IRT-2 trojan. 
 
 Once Implementation starts, to observe its course execute:
 
-"tail -f ./cva6/SynPnR.log"
+`tail -f ./cva6/SynPnR.log`
 
 The final .mcs and .bit files are copied in "./cva6/corev_apu/fpga/work-fpga" after the end of the implementation.
 
