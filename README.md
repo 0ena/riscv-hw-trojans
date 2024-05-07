@@ -47,7 +47,7 @@ Once Implementation starts, to observe its course execute:
 
 `tail -f ./cva6/SynPnR.log`
 
-The final .mcs and .bit files are copied in `./cva6/corev_apu/fpga/work-fpga` after the end of the implementation.
+The final `.mcs` and `.bit` files are copied in `./cva6/corev_apu/fpga/work-fpga` after the end of the implementation.
 
 ## Create an SD card:
 ----------
