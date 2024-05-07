@@ -55,8 +55,8 @@ To be released in the upcoming major repository update.
 
 ## Run the Integrity experiment:
 ----------
-To be released in the upcoming major update.
+To be released in the upcoming major repository update.
 
 ## Run the Availability experiment:
 ----------
-To be released in the upcoming major update.
+To be released in the upcoming major repository update.
