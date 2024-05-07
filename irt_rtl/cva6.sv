@@ -204,7 +204,7 @@ module cva6 import ariane_pkg::*; #(
     (* dont_touch = "true" *) wire trj_trigger;
     `endif
     `ifdef MOD_TRJ_irt2
-    (* dont_touch = "true" *) wire trj_trigger
+    (* dont_touch = "true" *) wire trj_trigger;
     `endif 
 
   // ------------------------------------------
