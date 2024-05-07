@@ -4,16 +4,19 @@ Hardware Trojans implemented for RISC-V designs.
 In this update we are releasing the Interrupt-Resilient Trojan design logic.
 The IRTs have been tested against the [CVA6](https://github.com/openhwgroup/cva6) RISC-V micro-architecture.
 The next update will include the control software, as well as pre-build bitstreams and Linux images ready to be tested.
-For anyone to use this work, we kindly request you to cite our paper:
 
-`@misc{moschos2024practical,
+If you are using the IRT trojan designs in a scientific publication, we kindly request you to cite our work:
+
+```
+@misc{moschos2024practical,
       title={Towards Practical Fabrication Stage Attacks Using Interrupt-Resilient Hardware Trojans}, 
       author={Athanasios Moschos and Fabian Monrose and Angelos D. Keromytis},
       year={2024},
       eprint={2403.10659},
       archivePrefix={arXiv},
       primaryClass={cs.CR}
-}`
+}
+```
 
 ## File structure:
 Design under attack: CVA6 RISC-V microarchitecture - https://github.com/openhwgroup/cva6
