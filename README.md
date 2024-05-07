@@ -43,7 +43,7 @@ With the risc-v toolchain and Vivado in the $PATH just run:
 
 where `irtX` is either `irt1` for the IRT-1 or `irt2` for the IRT-2 trojan. 
 
-Once Implementation starts, to observe its course execute:
+Once implementation starts, to observe its course execute:
 
 `tail -f ./cva6/SynPnR.log`
 
@@ -51,12 +51,12 @@ The final `.mcs` and `.bit` files are copied in `./cva6/corev_apu/fpga/work-fpga
 
 ## Create an SD card:
 ----------
-To be released in the next repository update.
+To be released in the upcoming major repository update.
 
 ## Run the Integrity experiment:
 ----------
-To be released in the next repository update.
+To be released in the upcoming major repository update.
 
 ## Run the Availability experiment:
 ----------
-To be released in the next repository update.
+To be released in the upcoming major repository update.
