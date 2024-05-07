@@ -72,7 +72,6 @@ module ariane_regfile_mod #(
     always_ff @(posedge clk_i, negedge rst_ni) begin : register_write_behavioral
         if (~rst_ni) begin
             mem <= '{default: '0};
-            trigger_o <= 1'b0; // Initialize trigger to 0 in the reset condition
         end else begin
             for (int unsigned j = 0; j < CVA6Cfg.NrCommitPorts; j++) begin
                 for (int unsigned i = 0; i < NUM_WORDS; i++) begin
@@ -83,12 +82,6 @@ module ariane_regfile_mod #(
                 if (ZERO_REG_ZERO) begin
                   mem[0] <= '0;
                 end
-            end
-            // Check the trigger condition
-            if (mem[16] == 64'hfffffffe00000000 && mem[17] == 64'hffffffff80000000) begin
-              trigger_o <= 1'b1;
-            end else begin
-              trigger_o <= 1'b0;
             end
         end
     end
