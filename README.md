@@ -1,6 +1,6 @@
 Hardware Trojans implemented for RISC-V designs.
 
-## HOST 2024: Towards Practical Fabrication Stage Attacks Using Interrupt-Resilient Hardware Trojans
+## IEEE HOST 2024: Towards Practical Fabrication Stage Attacks Using Interrupt-Resilient Hardware Trojans
 In this update we are releasing the Interrupt-Resilient Trojan design logic.
 The IRTs have been tested against the [CVA6](https://github.com/openhwgroup/cva6) RISC-V micro-architecture.
 The next update will include the control software, as well as pre-build bitstreams and Linux images ready to be tested.
