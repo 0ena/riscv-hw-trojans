@@ -8,14 +8,13 @@ The next update will include the control software, as well as pre-build bitstrea
 If you are using the IRT trojan designs in a scientific publication, we kindly request you to cite our work:
 
 ```
-@misc{moschos2024practical,
-      title={Towards Practical Fabrication Stage Attacks Using Interrupt-Resilient Hardware Trojans}, 
-      author={Athanasios Moschos and Fabian Monrose and Angelos D. Keromytis},
-      year={2024},
-      eprint={2403.10659},
-      archivePrefix={arXiv},
-      primaryClass={cs.CR}
+@INPROCEEDINGS {10545403,
+author = {A. Moschos and F. Monrose and A. D. Keromytis},
+booktitle = {2024 IEEE International Symposium on Hardware Oriented Security and Trust (HOST)},
+title = {Towards Practical Fabrication Stage Attacks Using Interrupt-Resilient Hardware Trojans},
+year = {2024},
 }
+
 ```
 
 ## File structure:
