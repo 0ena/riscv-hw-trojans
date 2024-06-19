@@ -45,6 +45,9 @@ Once the LKM is loaded, running the user process `irtX_trig_array.o` (where `X` 
 Upon unloading, the LKM prints the first and last address of the allocated space along with their altered contents.
 If the attack was successful, the contents of the addresses should have changed by the control software to the value `0xCBBBBBBBAAAAAAAD`.
 
+5) `src`: Includes the C files of the control software for the IRT-1 and IRT-2 trojans. 
+The provided Linux image includes the binary version of the control sfotware.
+
 ## Create a new IRT bitstream:
 ----------
 
