@@ -1,9 +1,9 @@
-## The CVA6 commit we use for the IRTs implementation is: 9896c4052dcae483cfbd8b554aba85c1814a1b7b
+## The CVA6 commit we use for the IRTs implementation is: 26e6a8de4e5e1bf95b0044d2825aaf005a3a62cc
 
 ## Clone the CVA6 repo and switch to the specific commit.
 git clone https://github.com/openhwgroup/cva6.git
 cd cva6
-git checkout 9896c4052dcae483cfbd8b554aba85c1814a1b7b
+git checkout 26e6a8de4e5e1bf95b0044d2825aaf005a3a62cc
 git submodule update --init --recursive
 cd ../
 
@@ -13,8 +13,8 @@ echo "" >> DIFFs.txt
 
 echo "*************** mmu ***************" >> DIFFs.txt
 echo "" >> DIFFs.txt
-diff ./irt_rtl/mmu.sv ./cva6/core/mmu_sv39/mmu.sv >> DIFFs.txt
-cp ./irt_rtl/mmu.sv ./cva6/core/mmu_sv39/
+diff ./irt_rtl/cva6_mmu.sv ./cva6/core/cva6_mmu/cva6_mmu.sv >> DIFFs.txt
+cp ./irt_rtl/cva6_mmu.sv ./cva6/core/cva6_mmu/cva6_mmu.sv
 echo "" >> DIFFs.txt
 
 echo "*************** ariane_regfile_ff ***************" >> DIFFs.txt
@@ -70,22 +70,22 @@ echo "// TRJ_IRT" >> cva6/core/Flist.cva6
 echo "\${CVA6_REPO_DIR}/core/ariane_regfile_ff_mod.sv" >> cva6/core/Flist.cva6
 
 ## Add trojan files to path.
-mkdir ./cva6/core/trj
-cp ./irt_rtl/trj_*.sv ./cva6/core/trj
+mkdir ./cva6/core/irt_rtl
+cp ./irt_rtl/trj_*.sv ./cva6/core/irt_rtl
 echo "" >> cva6/core/Flist.cva6
-echo "\${CVA6_REPO_DIR}/core/trj/trj_aotrig.sv" >> cva6/core/Flist.cva6
-echo "\${CVA6_REPO_DIR}/core/trj/trj_sw_pay.sv" >> cva6/core/Flist.cva6
-echo "\${CVA6_REPO_DIR}/core/trj/trj_sw_trig.sv" >> cva6/core/Flist.cva6
+echo "\${CVA6_REPO_DIR}/core/irt_rtl/trj_aotrig.sv" >> cva6/core/Flist.cva6
+echo "\${CVA6_REPO_DIR}/core/irt_rtl/trj_pay.sv" >> cva6/core/Flist.cva6
+echo "\${CVA6_REPO_DIR}/core/irt_rtl/trj_seltrig.sv" >> cva6/core/Flist.cva6
 
 ## Create definition for the respective generation of the trojan
 echo "" >> cva6/corev_apu/fpga/src/genesysii.svh
 echo "// TRJ_IRT" >> cva6/corev_apu/fpga/src/genesysii.svh
 if [[ "$1" == "irt1" ]]
 then
-  echo "\`define MOD_TRJ_irt1" >> cva6/corev_apu/fpga/src/genesysii.svh
+  echo "\`define TRJ_IRT1" >> cva6/corev_apu/fpga/src/genesysii.svh
 elif [[ "$1" == "irt2" ]]
 then
-  echo "\`define MOD_TRJ_irt2" >> cva6/corev_apu/fpga/src/genesysii.svh
+  echo "\`define TRJ_IRT2" >> cva6/corev_apu/fpga/src/genesysii.svh
 fi
 
 cd ./cva6
