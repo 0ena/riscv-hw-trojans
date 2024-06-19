@@ -1,8 +1,8 @@
 ## Interrupt-Resilient Hardware Trojans
 This repo includes the design logic of the Interrupt-Resilient Trojans or IRTs.
 The IRTs have been tested against the [CVA6](https://github.com/openhwgroup/cva6) RISC-V micro-architecture.
-
-If you are using the IRT designs in a scientific publication, we kindly request you to cite our work:
+You can read more about IRTs in our [HOST 2024 publication](https://www.computer.org/csdl/proceedings-article/host/2024/10545403/1Xyt0448OxW).
+If you are using the IRT designs in your work, we kindly request you to cite our work:
 
 ```
 @INPROCEEDINGS {10545403,
@@ -15,7 +15,7 @@ year = {2024},
 ```
 
 ## File structure:
-Design under attack: CVA6 RISC-V microarchitecture - https://github.com/openhwgroup/cva6
+Design under attack: [CVA6 RISC-V microarchitecture](https://github.com/openhwgroup/cva6)
 
 What's included in this deliverable version:
 
