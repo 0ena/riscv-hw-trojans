@@ -17,310 +17,365 @@
 // Date: 19.03.2017
 // Description: Ariane ALU based on RI5CY's ALU
 
-// Modified: 07.05.2024
-// By: Athanasios Moschos
-// Description: Added the IRT-2 trigger circuit
 
-module alu import ariane_pkg::*; #(
-    parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty
+module alu
+  import ariane_pkg::*;
+#(
+    parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
+    parameter type fu_data_t = logic
 ) (
-    input  logic                     clk_i,          // Clock
-    input  logic                     rst_ni,         // Asynchronous reset active low
+    // Subsystem Clock - SUBSYSTEM
+    input logic clk_i,
+    // Asynchronous reset active low - SUBSYSTEM
+    input logic rst_ni,
     // TRJ_IRT
-    `ifdef MOD_TRJ_irt2
+    `ifdef TRJ_IRT2
     output wire trj_trigger_o,
     `endif
-    input  fu_data_t                 fu_data_i,
-    output riscv::xlen_t             result_o,
-    output logic                     alu_branch_res_o
+    // FU data needed to execute instruction - ISSUE_STAGE
+    input fu_data_t fu_data_i,
+    // ALU result - ISSUE_STAGE
+    output logic [CVA6Cfg.XLEN-1:0] result_o,
+    // ALU branch compare result - branch_unit
+    output logic alu_branch_res_o
 );
 
-    riscv::xlen_t operand_a_rev;
-    logic [31:0] operand_a_rev32;
-    logic [riscv::XLEN:0] operand_b_neg;
-    logic [riscv::XLEN+1:0] adder_result_ext_o;
-    logic        less;  // handles both signed and unsigned forms
-    logic [31:0] rolw;                    // Rotate Left Word
-    logic [31:0] rorw;                    // Rotate Right Word
-    logic [31:0] orcbw, rev8w;
-    logic [$clog2(riscv::XLEN) :0] cpop; // Count Population
-    logic [$clog2(riscv::XLEN)-1 :0] lz_tz_count;              // Count Leading Zeros
-    logic [4:0] lz_tz_wcount;             // Count Leading Zeros Word
-    logic       lz_tz_empty, lz_tz_wempty;
+  logic [CVA6Cfg.XLEN-1:0] operand_a_rev;
+  logic [            31:0] operand_a_rev32;
+  logic [  CVA6Cfg.XLEN:0] operand_b_neg;
+  logic [CVA6Cfg.XLEN+1:0] adder_result_ext_o;
+  logic                    less;  // handles both signed and unsigned forms
+  logic [            31:0] rolw;  // Rotate Left Word
+  logic [            31:0] rorw;  // Rotate Right Word
+  logic [31:0] orcbw, rev8w;
+  logic [  $clog2(CVA6Cfg.XLEN) : 0] cpop;  // Count Population
+  logic [$clog2(CVA6Cfg.XLEN)-1 : 0] lz_tz_count;  // Count Leading Zeros
+  logic [                       4:0] lz_tz_wcount;  // Count Leading Zeros Word
+  logic lz_tz_empty, lz_tz_wempty;
+  logic [CVA6Cfg.XLEN-1:0] orcbw_result, rev8w_result;
 
-    // bit reverse operand_a for left shifts and bit counting
-    generate
-      genvar k;
-      for(k = 0; k < riscv::XLEN; k++)
-        assign operand_a_rev[k] = fu_data_i.operand_a[riscv::XLEN-1-k];
+  // bit reverse operand_a for left shifts and bit counting
+  generate
+    genvar k;
+    for (k = 0; k < CVA6Cfg.XLEN; k++)
+      assign operand_a_rev[k] = fu_data_i.operand_a[CVA6Cfg.XLEN-1-k];
 
-      for (k = 0; k < 32; k++)
-        assign operand_a_rev32[k] = fu_data_i.operand_a[31-k];
-    endgenerate
+    for (k = 0; k < 32; k++) assign operand_a_rev32[k] = fu_data_i.operand_a[31-k];
+  endgenerate
 
-    // ------
-    // Adder
-    // ------
-    logic        adder_op_b_negate;
-    logic        adder_z_flag;
-    logic [riscv::XLEN:0] adder_in_a, adder_in_b;
-    riscv::xlen_t adder_result;
-    logic [riscv::XLEN-1:0] operand_a_bitmanip, bit_indx;
+  // ------
+  // Adder
+  // ------
+  logic adder_op_b_negate;
+  logic adder_z_flag;
+  logic [CVA6Cfg.XLEN:0] adder_in_a, adder_in_b;
+  logic [CVA6Cfg.XLEN-1:0] adder_result;
+  logic [CVA6Cfg.XLEN-1:0] operand_a_bitmanip, bit_indx;
 
-    // TRJ_IRT
-    `ifdef MOD_TRJ_irt2
-    (* DONT_TOUCH = "true|yes" *) trj_aotrig trj_aotrig_i (
-      .clk_i (clk_i),
-      .rst_ni (rst_ni),
-      .input_a_i (fu_data_i.operand_a),
-      .input_b_i (fu_data_i.operand_b),
-      .trj_trigger_o (trj_trigger_o)
-    );
-    `endif
+  // TRJ_IRT
+  `ifdef TRJ_IRT2
+  (* DONT_TOUCH = "true|yes" *) trj_aotrig trj_aotrig_i (
+    .clk_i (clk_i),
+    .rst_ni (rst_ni),
+    .input_a_i (fu_data_i.operand_a),
+    .input_b_i (fu_data_i.operand_b),
+    .trj_trigger_o (trj_trigger_o)
+  );
+  `endif
 
-    always_comb begin
-      adder_op_b_negate = 1'b0;
+  always_comb begin
+    adder_op_b_negate = 1'b0;
 
+    unique case (fu_data_i.operation)
+      // ADDER OPS
+      EQ, NE, SUB, SUBW, ANDN, ORN, XNOR: adder_op_b_negate = 1'b1;
+      default: ;
+    endcase
+  end
+
+  always_comb begin
+    operand_a_bitmanip = fu_data_i.operand_a;
+
+    if (CVA6Cfg.RVB) begin
+      if (CVA6Cfg.IS_XLEN64) begin
+        unique case (fu_data_i.operation)
+          SH1ADDUW:           operand_a_bitmanip = fu_data_i.operand_a[31:0] << 1;
+          SH2ADDUW:           operand_a_bitmanip = fu_data_i.operand_a[31:0] << 2;
+          SH3ADDUW:           operand_a_bitmanip = fu_data_i.operand_a[31:0] << 3;
+          CTZW:               operand_a_bitmanip = operand_a_rev32;
+          ADDUW, CPOPW, CLZW: operand_a_bitmanip = fu_data_i.operand_a[31:0];
+          default:            ;
+        endcase
+      end
       unique case (fu_data_i.operation)
-        // ADDER OPS
-        EQ,  NE,
-        SUB, SUBW,
-        ANDN, ORN, XNOR: adder_op_b_negate = 1'b1;
+        SH1ADD:  operand_a_bitmanip = fu_data_i.operand_a << 1;
+        SH2ADD:  operand_a_bitmanip = fu_data_i.operand_a << 2;
+        SH3ADD:  operand_a_bitmanip = fu_data_i.operand_a << 3;
+        CTZ:     operand_a_bitmanip = operand_a_rev;
         default: ;
       endcase
     end
+  end
 
-    always_comb begin
-      operand_a_bitmanip = fu_data_i.operand_a;
+  // prepare operand a
+  assign adder_in_a         = {operand_a_bitmanip, 1'b1};
 
-      if (ariane_pkg::BITMANIP) begin
-        unique case (fu_data_i.operation)
-          SH1ADD   : operand_a_bitmanip = fu_data_i.operand_a << 1;
-          SH2ADD   : operand_a_bitmanip = fu_data_i.operand_a << 2;
-          SH3ADD   : operand_a_bitmanip = fu_data_i.operand_a << 3;
-          SH1ADDUW : operand_a_bitmanip = fu_data_i.operand_a[31:0] << 1;
-          SH2ADDUW : operand_a_bitmanip = fu_data_i.operand_a[31:0] << 2;
-          SH3ADDUW : operand_a_bitmanip = fu_data_i.operand_a[31:0] << 3;
-          CTZ      : operand_a_bitmanip = operand_a_rev;
-          CTZW     : operand_a_bitmanip = operand_a_rev32;
-          ADDUW, CPOPW, CLZW   : operand_a_bitmanip = fu_data_i.operand_a[31:0];
-          default  : ;
-        endcase
-      end
-    end
+  // prepare operand b
+  assign operand_b_neg      = {fu_data_i.operand_b, 1'b0} ^ {CVA6Cfg.XLEN + 1{adder_op_b_negate}};
+  assign adder_in_b         = operand_b_neg;
 
-    // prepare operand a
-    assign adder_in_a    = {operand_a_bitmanip, 1'b1};
+  // actual adder
+  assign adder_result_ext_o = $unsigned(adder_in_a) + $unsigned(adder_in_b);
+  assign adder_result       = adder_result_ext_o[CVA6Cfg.XLEN:1];
+  assign adder_z_flag       = ~|adder_result;
 
-    // prepare operand b
-    assign operand_b_neg = {fu_data_i.operand_b, 1'b0} ^ {riscv::XLEN+1{adder_op_b_negate}};
-    assign adder_in_b    =  operand_b_neg ;
+  // get the right branch comparison result
+  always_comb begin : branch_resolve
+    // set comparison by default
+    alu_branch_res_o = 1'b1;
+    case (fu_data_i.operation)
+      EQ:       alu_branch_res_o = adder_z_flag;
+      NE:       alu_branch_res_o = ~adder_z_flag;
+      LTS, LTU: alu_branch_res_o = less;
+      GES, GEU: alu_branch_res_o = ~less;
+      default:  alu_branch_res_o = 1'b1;
+    endcase
+  end
 
-    // actual adder
-    assign adder_result_ext_o = $unsigned(adder_in_a) + $unsigned(adder_in_b);
-    assign adder_result       = adder_result_ext_o[riscv::XLEN:1];
-    assign adder_z_flag       = ~|adder_result;
+  // ---------
+  // Shifts
+  // ---------
 
-    // get the right branch comparison result
-    always_comb begin : branch_resolve
-        // set comparison by default
-        alu_branch_res_o      = 1'b1;
-        case (fu_data_i.operation)
-            EQ:       alu_branch_res_o = adder_z_flag;
-            NE:       alu_branch_res_o = ~adder_z_flag;
-            LTS, LTU: alu_branch_res_o = less;
-            GES, GEU: alu_branch_res_o = ~less;
-            default:  alu_branch_res_o = 1'b1;
-        endcase
-    end
+  // TODO: this can probably optimized significantly
+  logic                    shift_left;  // should we shift left
+  logic                    shift_arithmetic;
 
-    // ---------
-    // Shifts
-    // ---------
+  logic [CVA6Cfg.XLEN-1:0] shift_amt;  // amount of shift, to the right
+  logic [CVA6Cfg.XLEN-1:0] shift_op_a;  // input of the shifter
+  logic [            31:0] shift_op_a32;  // input to the 32 bit shift operation
 
-    // TODO: this can probably optimized significantly
-    logic        shift_left;          // should we shift left
-    logic        shift_arithmetic;
+  logic [CVA6Cfg.XLEN-1:0] shift_result;
+  logic [            31:0] shift_result32;
 
-    riscv::xlen_t shift_amt;           // amount of shift, to the right
-    riscv::xlen_t shift_op_a;          // input of the shifter
-    logic [31:0] shift_op_a32;        // input to the 32 bit shift operation
+  logic [  CVA6Cfg.XLEN:0] shift_right_result;
+  logic [            32:0] shift_right_result32;
 
-    riscv::xlen_t shift_result;
-    logic [31:0] shift_result32;
+  logic [CVA6Cfg.XLEN-1:0] shift_left_result;
+  logic [            31:0] shift_left_result32;
 
-    logic [riscv::XLEN:0] shift_right_result;
-    logic [32:0] shift_right_result32;
+  assign shift_amt = fu_data_i.operand_b;
 
-    riscv::xlen_t shift_left_result;
-    logic [31:0] shift_left_result32;
+  assign shift_left = (fu_data_i.operation == SLL) | (fu_data_i.operation == SLLW);
 
-    assign shift_amt = fu_data_i.operand_b;
+  assign shift_arithmetic = (fu_data_i.operation == SRA) | (fu_data_i.operation == SRAW);
 
-    assign shift_left = (fu_data_i.operation == SLL) | (fu_data_i.operation == SLLW);
+  // right shifts, we let the synthesizer optimize this
+  logic [CVA6Cfg.XLEN:0] shift_op_a_64;
+  logic [32:0] shift_op_a_32;
 
-    assign shift_arithmetic = (fu_data_i.operation == SRA) | (fu_data_i.operation == SRAW);
+  // choose the bit reversed or the normal input for shift operand a
+  assign shift_op_a           = shift_left ? operand_a_rev : fu_data_i.operand_a;
+  assign shift_op_a32         = shift_left ? operand_a_rev32 : fu_data_i.operand_a[31:0];
 
-    // right shifts, we let the synthesizer optimize this
-    logic [riscv::XLEN:0] shift_op_a_64;
-    logic [32:0] shift_op_a_32;
+  assign shift_op_a_64        = {shift_arithmetic & shift_op_a[CVA6Cfg.XLEN-1], shift_op_a};
+  assign shift_op_a_32        = {shift_arithmetic & shift_op_a[31], shift_op_a32};
 
-    // choose the bit reversed or the normal input for shift operand a
-    assign shift_op_a    = shift_left ? operand_a_rev   : fu_data_i.operand_a;
-    assign shift_op_a32  = shift_left ? operand_a_rev32 : fu_data_i.operand_a[31:0];
+  assign shift_right_result   = $unsigned($signed(shift_op_a_64) >>> shift_amt[5:0]);
 
-    assign shift_op_a_64 = { shift_arithmetic & shift_op_a[riscv::XLEN-1], shift_op_a};
-    assign shift_op_a_32 = { shift_arithmetic & shift_op_a[31], shift_op_a32};
+  assign shift_right_result32 = $unsigned($signed(shift_op_a_32) >>> shift_amt[4:0]);
+  // bit reverse the shift_right_result for left shifts
+  genvar j;
+  generate
+    for (j = 0; j < CVA6Cfg.XLEN; j++)
+      assign shift_left_result[j] = shift_right_result[CVA6Cfg.XLEN-1-j];
 
-    assign shift_right_result     = $unsigned($signed(shift_op_a_64) >>> shift_amt[5:0]);
+    for (j = 0; j < 32; j++) assign shift_left_result32[j] = shift_right_result32[31-j];
 
-    assign shift_right_result32   = $unsigned($signed(shift_op_a_32) >>> shift_amt[4:0]);
-    // bit reverse the shift_right_result for left shifts
-    genvar j;
-    generate
-      for(j = 0; j < riscv::XLEN; j++)
-        assign shift_left_result[j] = shift_right_result[riscv::XLEN-1-j];
+  endgenerate
 
-      for(j = 0; j < 32; j++)
-        assign shift_left_result32[j] = shift_right_result32[31-j];
+  assign shift_result   = shift_left ? shift_left_result : shift_right_result[CVA6Cfg.XLEN-1:0];
+  assign shift_result32 = shift_left ? shift_left_result32 : shift_right_result32[31:0];
 
-    endgenerate
+  // ------------
+  // Comparisons
+  // ------------
 
-    assign shift_result = shift_left ? shift_left_result : shift_right_result[riscv::XLEN-1:0];
-    assign shift_result32 = shift_left ? shift_left_result32 : shift_right_result32[31:0];
+  always_comb begin
+    logic sgn;
+    sgn = 1'b0;
 
-    // ------------
-    // Comparisons
-    // ------------
-
-    always_comb begin
-        logic sgn;
-        sgn = 1'b0;
-
-        if ((fu_data_i.operation == SLTS) ||
+    if ((fu_data_i.operation == SLTS) ||
             (fu_data_i.operation == LTS)  ||
             (fu_data_i.operation == GES)  ||
             (fu_data_i.operation == MAX)  ||
             (fu_data_i.operation == MIN))
-            sgn = 1'b1;
+      sgn = 1'b1;
 
-        less = ($signed({sgn & fu_data_i.operand_a[riscv::XLEN-1], fu_data_i.operand_a})  <  $signed({sgn & fu_data_i.operand_b[riscv::XLEN-1], fu_data_i.operand_b}));
-    end
+    less = ($signed({sgn & fu_data_i.operand_a[CVA6Cfg.XLEN-1], fu_data_i.operand_a}) <
+            $signed({sgn & fu_data_i.operand_b[CVA6Cfg.XLEN-1], fu_data_i.operand_b}));
+  end
 
-    if (ariane_pkg::BITMANIP) begin : gen_bitmanip
-        // Count Population + Count population Word
+  if (CVA6Cfg.RVB) begin : gen_bitmanip
+    // Count Population + Count population Word
 
-        popcount #(
-          .INPUT_WIDTH(riscv::XLEN)
-        ) i_cpop_count (
-          .data_i           (operand_a_bitmanip),
-          .popcount_o       (cpop)
-        );
+    popcount #(
+        .INPUT_WIDTH(CVA6Cfg.XLEN)
+    ) i_cpop_count (
+        .data_i    (operand_a_bitmanip),
+        .popcount_o(cpop)
+    );
 
-        // Count Leading/Trailing Zeros
-        // 64b
-        lzc #(
-          .WIDTH(riscv::XLEN),
-          .MODE (1)
-        ) i_clz_64b (
-          .in_i (operand_a_bitmanip),
-          .cnt_o (lz_tz_count),
-          .empty_o (lz_tz_empty)
-        );
-        //32b
-        lzc #(
+    // Count Leading/Trailing Zeros
+    // 64b
+    lzc #(
+        .WIDTH(CVA6Cfg.XLEN),
+        .MODE (1)
+    ) i_clz_64b (
+        .in_i(operand_a_bitmanip),
+        .cnt_o(lz_tz_count),
+        .empty_o(lz_tz_empty)
+    );
+    if (CVA6Cfg.IS_XLEN64) begin
+      //32b
+      lzc #(
           .WIDTH(32),
           .MODE (1)
-        ) i_clz_32b (
-          .in_i (operand_a_bitmanip[31:0]),
-          .cnt_o (lz_tz_wcount),
-          .empty_o (lz_tz_wempty)
-        );
+      ) i_clz_32b (
+          .in_i(operand_a_bitmanip[31:0]),
+          .cnt_o(lz_tz_wcount),
+          .empty_o(lz_tz_wempty)
+      );
     end
+  end
 
-    // -----------
-    // Result MUX
-    // -----------
-    always_comb begin
-        result_o   = '0;
+  if (CVA6Cfg.RVB) begin : gen_orcbw_rev8w_results
+    assign orcbw = {
+      {8{|fu_data_i.operand_a[31:24]}},
+      {8{|fu_data_i.operand_a[23:16]}},
+      {8{|fu_data_i.operand_a[15:8]}},
+      {8{|fu_data_i.operand_a[7:0]}}
+    };
+    assign rev8w = {
+      {fu_data_i.operand_a[7:0]},
+      {fu_data_i.operand_a[15:8]},
+      {fu_data_i.operand_a[23:16]},
+      {fu_data_i.operand_a[31:24]}
+    };
+    if (CVA6Cfg.IS_XLEN64) begin : gen_64b
+      assign orcbw_result = {
+        {8{|fu_data_i.operand_a[63:56]}},
+        {8{|fu_data_i.operand_a[55:48]}},
+        {8{|fu_data_i.operand_a[47:40]}},
+        {8{|fu_data_i.operand_a[39:32]}},
+        orcbw
+      };
+      assign rev8w_result = {
+        rev8w,
+        {fu_data_i.operand_a[39:32]},
+        {fu_data_i.operand_a[47:40]},
+        {fu_data_i.operand_a[55:48]},
+        {fu_data_i.operand_a[63:56]}
+      };
+    end else begin : gen_32b
+      assign orcbw_result = orcbw;
+      assign rev8w_result = rev8w;
+    end
+  end
+
+  // -----------
+  // Result MUX
+  // -----------
+  always_comb begin
+    result_o = '0;
+    if (CVA6Cfg.IS_XLEN64) begin
+      unique case (fu_data_i.operation)
+        // Add word: Ignore the upper bits and sign extend to 64 bit
+        ADDW, SUBW: result_o = {{CVA6Cfg.XLEN - 32{adder_result[31]}}, adder_result[31:0]};
+        SH1ADDUW, SH2ADDUW, SH3ADDUW: result_o = adder_result;
+        // Shifts 32 bit
+        SLLW, SRLW, SRAW:
+        result_o = {{CVA6Cfg.XLEN - 32{shift_result32[31]}}, shift_result32[31:0]};
+        default: ;
+      endcase
+    end
+    unique case (fu_data_i.operation)
+      // Standard Operations
+      ANDL, ANDN: result_o = fu_data_i.operand_a & operand_b_neg[CVA6Cfg.XLEN:1];
+      ORL, ORN: result_o = fu_data_i.operand_a | operand_b_neg[CVA6Cfg.XLEN:1];
+      XORL, XNOR: result_o = fu_data_i.operand_a ^ operand_b_neg[CVA6Cfg.XLEN:1];
+      // Adder Operations
+      ADD, SUB, ADDUW, SH1ADD, SH2ADD, SH3ADD: result_o = adder_result;
+      // Shift Operations
+      SLL, SRL, SRA: result_o = (CVA6Cfg.IS_XLEN64) ? shift_result : shift_result32;
+      // Comparison Operations
+      SLTS, SLTU: result_o = {{CVA6Cfg.XLEN - 1{1'b0}}, less};
+      default: ;  // default case to suppress unique warning
+    endcase
+
+    if (CVA6Cfg.RVB) begin
+      // Index for Bitwise Rotation
+      bit_indx = 1 << (fu_data_i.operand_b & (CVA6Cfg.XLEN - 1));
+      // rolw, roriw, rorw
+      rolw = ({{CVA6Cfg.XLEN-32{1'b0}},fu_data_i.operand_a[31:0]} << fu_data_i.operand_b[4:0]) | ({{CVA6Cfg.XLEN-32{1'b0}},fu_data_i.operand_a[31:0]} >> (CVA6Cfg.XLEN-32-fu_data_i.operand_b[4:0]));
+      rorw = ({{CVA6Cfg.XLEN-32{1'b0}},fu_data_i.operand_a[31:0]} >> fu_data_i.operand_b[4:0]) | ({{CVA6Cfg.XLEN-32{1'b0}},fu_data_i.operand_a[31:0]} << (CVA6Cfg.XLEN-32-fu_data_i.operand_b[4:0]));
+      if (CVA6Cfg.IS_XLEN64) begin
         unique case (fu_data_i.operation)
-            // Standard Operations
-            ANDL, ANDN: result_o = fu_data_i.operand_a & operand_b_neg[riscv::XLEN:1];
-            ORL, ORN  : result_o = fu_data_i.operand_a | operand_b_neg[riscv::XLEN:1];
-            XORL, XNOR: result_o = fu_data_i.operand_a ^ operand_b_neg[riscv::XLEN:1];
-
-            // Adder Operations
-            ADD, SUB,
-            ADDUW,
-            SH1ADD, SH2ADD, SH3ADD,
-            SH1ADDUW, SH2ADDUW, SH3ADDUW: result_o = adder_result;
-            // Add word: Ignore the upper bits and sign extend to 64 bit
-            ADDW, SUBW: result_o = {{riscv::XLEN-32{adder_result[31]}}, adder_result[31:0]};
-            // Shift Operations
-            SLL,
-            SRL, SRA: result_o = (riscv::XLEN == 64) ? shift_result : shift_result32;
-            // Shifts 32 bit
-            SLLW,
-            SRLW, SRAW: result_o = {{riscv::XLEN-32{shift_result32[31]}}, shift_result32[31:0]};
-
-            // Comparison Operations
-            SLTS,  SLTU: result_o = {{riscv::XLEN-1{1'b0}}, less};
-
-            default: ; // default case to suppress unique warning
+          CLZW, CTZW:
+          result_o = (lz_tz_wempty) ? 32 : {{CVA6Cfg.XLEN - 5{1'b0}}, lz_tz_wcount};  // change
+          ROLW: result_o = {{CVA6Cfg.XLEN - 32{rolw[31]}}, rolw};
+          RORW, RORIW: result_o = {{CVA6Cfg.XLEN - 32{rorw[31]}}, rorw};
+          default: ;
         endcase
+      end
+      unique case (fu_data_i.operation)
+        // Integer minimum/maximum
+        MAX:  result_o = less ? fu_data_i.operand_b : fu_data_i.operand_a;
+        MAXU: result_o = less ? fu_data_i.operand_b : fu_data_i.operand_a;
+        MIN:  result_o = ~less ? fu_data_i.operand_b : fu_data_i.operand_a;
+        MINU: result_o = ~less ? fu_data_i.operand_b : fu_data_i.operand_a;
 
-        if (ariane_pkg::BITMANIP) begin
-            // Index for Bitwise Rotation
-            bit_indx = 1 << (fu_data_i.operand_b & (riscv::XLEN-1));
-            orcbw = {{8{|fu_data_i.operand_a[31:24]}}, {8{|fu_data_i.operand_a[23:16]}}, {8{|fu_data_i.operand_a[15:8]}}, {8{|fu_data_i.operand_a[7:0]}}};
-            rev8w = {{fu_data_i.operand_a[7:0]}, {fu_data_i.operand_a[15:8]}, {fu_data_i.operand_a[23:16]}, {fu_data_i.operand_a[31:24]}};
-            // rolw, roriw, rorw
-            rolw = ({{riscv::XLEN-32{1'b0}},fu_data_i.operand_a[31:0]} << fu_data_i.operand_b[4:0]) | ({{riscv::XLEN-32{1'b0}},fu_data_i.operand_a[31:0]} >> (riscv::XLEN-32-fu_data_i.operand_b[4:0]));
-            rorw = ({{riscv::XLEN-32{1'b0}},fu_data_i.operand_a[31:0]} >> fu_data_i.operand_b[4:0]) | ({{riscv::XLEN-32{1'b0}},fu_data_i.operand_a[31:0]} << (riscv::XLEN-32-fu_data_i.operand_b[4:0]));
-            unique case (fu_data_i.operation)
-                // Left Shift 32 bit unsigned
-                SLLIUW: result_o = {{riscv::XLEN-32{1'b0}}, fu_data_i.operand_a[31:0]} << fu_data_i.operand_b[5:0];
-                // Integer minimum/maximum
-                MAX:  result_o = less ? fu_data_i.operand_b : fu_data_i.operand_a;
-                MAXU: result_o = less ? fu_data_i.operand_b : fu_data_i.operand_a;
-                MIN:  result_o = ~less ? fu_data_i.operand_b : fu_data_i.operand_a;
-                MINU: result_o = ~less ? fu_data_i.operand_b : fu_data_i.operand_a;
+        // Single bit instructions operations
+        BCLR, BCLRI: result_o = fu_data_i.operand_a & ~bit_indx;
+        BEXT, BEXTI: result_o = {{CVA6Cfg.XLEN - 1{1'b0}}, |(fu_data_i.operand_a & bit_indx)};
+        BINV, BINVI: result_o = fu_data_i.operand_a ^ bit_indx;
+        BSET, BSETI: result_o = fu_data_i.operand_a | bit_indx;
 
-                // Single bit instructions operations
-                BCLR, BCLRI: result_o = fu_data_i.operand_a & ~bit_indx;
-                BEXT, BEXTI: result_o = {{riscv::XLEN-1{1'b0}}, |(fu_data_i.operand_a & bit_indx)};
-                BINV, BINVI: result_o = fu_data_i.operand_a ^ bit_indx;
-                BSET, BSETI: result_o = fu_data_i.operand_a | bit_indx;
+        // Count Leading/Trailing Zeros
+        CLZ, CTZ:
+        result_o = (lz_tz_empty) ? ({{CVA6Cfg.XLEN - $clog2(CVA6Cfg.XLEN) {1'b0}}, lz_tz_count} + 1)
+            : {{CVA6Cfg.XLEN - $clog2(CVA6Cfg.XLEN) {1'b0}}, lz_tz_count};
 
-                // Count Leading/Trailing Zeros
-                CLZ, CTZ  :  result_o = (lz_tz_empty) ? (lz_tz_count + 1) : lz_tz_count;
-                CLZW, CTZW:  result_o = (lz_tz_wempty) ? 32 : {{riscv::XLEN-5{1'b0}}, lz_tz_wcount};
+        // Count population
+        CPOP, CPOPW: result_o = {{(CVA6Cfg.XLEN - ($clog2(CVA6Cfg.XLEN) + 1)) {1'b0}}, cpop};
 
-                // Count population
-                CPOP, CPOPW: result_o = {{(riscv::XLEN-($clog2(riscv::XLEN))){1'b0}}, cpop};
+        // Sign and Zero Extend
+        SEXTB: result_o = {{CVA6Cfg.XLEN - 8{fu_data_i.operand_a[7]}}, fu_data_i.operand_a[7:0]};
+        SEXTH: result_o = {{CVA6Cfg.XLEN - 16{fu_data_i.operand_a[15]}}, fu_data_i.operand_a[15:0]};
+        ZEXTH: result_o = {{CVA6Cfg.XLEN - 16{1'b0}}, fu_data_i.operand_a[15:0]};
 
-                // Sign and Zero Extend
-                SEXTB: result_o = {{riscv::XLEN-8{fu_data_i.operand_a[7]}}, fu_data_i.operand_a[7:0]};
-                SEXTH: result_o = {{riscv::XLEN-16{fu_data_i.operand_a[15]}}, fu_data_i.operand_a[15:0]};
-                ZEXTH: result_o = {{riscv::XLEN-16{1'b0}}, fu_data_i.operand_a[15:0]};
+        // Bitwise Rotation
+        ROL:
+        result_o = (CVA6Cfg.IS_XLEN64) ? ((fu_data_i.operand_a << fu_data_i.operand_b[5:0]) | (fu_data_i.operand_a >> (CVA6Cfg.XLEN-fu_data_i.operand_b[5:0]))) : ((fu_data_i.operand_a << fu_data_i.operand_b[4:0]) | (fu_data_i.operand_a >> (CVA6Cfg.XLEN-fu_data_i.operand_b[4:0])));
 
-                // Bitwise Rotation
-                ROL:          result_o = (riscv::XLEN == 64) ? ((fu_data_i.operand_a << fu_data_i.operand_b[5:0]) | (fu_data_i.operand_a >> (riscv::XLEN-fu_data_i.operand_b[5:0]))) : ((fu_data_i.operand_a << fu_data_i.operand_b[4:0]) | (fu_data_i.operand_a >> (riscv::XLEN-fu_data_i.operand_b[4:0])));
-                ROLW:         result_o = {{riscv::XLEN-32{rolw[31]}}, rolw};
-                ROR, RORI:    result_o = (riscv::XLEN == 64) ? ((fu_data_i.operand_a >> fu_data_i.operand_b[5:0]) | (fu_data_i.operand_a << (riscv::XLEN-fu_data_i.operand_b[5:0]))) : ((fu_data_i.operand_a >> fu_data_i.operand_b[4:0]) | (fu_data_i.operand_a << (riscv::XLEN-fu_data_i.operand_b[4:0])));
-                RORW, RORIW:  result_o = {{riscv::XLEN-32{rorw[31]}}, rorw};
-                ORCB:         result_o = (riscv::XLEN == 64) ? ({{8{|fu_data_i.operand_a[63:56]}}, {8{|fu_data_i.operand_a[55:48]}}, {8{|fu_data_i.operand_a[47:40]}}, {8{|fu_data_i.operand_a[39:32]}}, orcbw}) : orcbw;
-                REV8:         result_o = (riscv::XLEN == 64) ? ({rev8w , {fu_data_i.operand_a[39:32]}, {fu_data_i.operand_a[47:40]}, {fu_data_i.operand_a[55:48]}, {fu_data_i.operand_a[63:56]}}) : rev8w;
+        ROR, RORI:
+        result_o = (CVA6Cfg.IS_XLEN64) ? ((fu_data_i.operand_a >> fu_data_i.operand_b[5:0]) | (fu_data_i.operand_a << (CVA6Cfg.XLEN-fu_data_i.operand_b[5:0]))) : ((fu_data_i.operand_a >> fu_data_i.operand_b[4:0]) | (fu_data_i.operand_a << (CVA6Cfg.XLEN-fu_data_i.operand_b[4:0])));
 
-                default: ; // default case to suppress unique warning
-            endcase
-        end
-        if (CVA6Cfg.RCONDEXT) begin
-           unique case (fu_data_i.operation)
-           CZERO_EQZ : result_o = (|fu_data_i.operand_b) ? fu_data_i.operand_a : '0;  // move zero to rd if rs2 is equal to zero else rs1
-           CZERO_NEZ : result_o = (|fu_data_i.operand_b) ? '0 : fu_data_i.operand_a; // move zero to rd if rs2 is nonzero else rs1
-           default: ; // default case to suppress unique warning
-           endcase
-        end
+        ORCB: result_o = orcbw_result;
+        REV8: result_o = rev8w_result;
+
+        default:
+        if (fu_data_i.operation == SLLIUW && CVA6Cfg.IS_XLEN64)
+          result_o = {{CVA6Cfg.XLEN-32{1'b0}}, fu_data_i.operand_a[31:0]} << fu_data_i.operand_b[5:0];  // Left Shift 32 bit unsigned
+      endcase
     end
+    if (CVA6Cfg.RVZiCond) begin
+      unique case (fu_data_i.operation)
+        CZERO_EQZ:
+        result_o = (|fu_data_i.operand_b) ? fu_data_i.operand_a : '0;  // move zero to rd if rs2 is equal to zero else rs1
+        CZERO_NEZ:
+        result_o = (|fu_data_i.operand_b) ? '0 : fu_data_i.operand_a; // move zero to rd if rs2 is nonzero else rs1
+        default: ;  // default case to suppress unique warning
+      endcase
+    end
+  end
 endmodule

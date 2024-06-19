@@ -1,5 +1,5 @@
 // Author: Athanasios Moschos, Georgia Tech
-// Date: 05/07/2024
+// Date: 05/21/2024
 // Description: Triggering module of the IRT-2 trojan.
 
 (* DONT_TOUCH = "true|yes" *) 
