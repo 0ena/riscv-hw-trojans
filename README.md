@@ -22,18 +22,30 @@ Design under attack: CVA6 RISC-V microarchitecture - https://github.com/openhwgr
 
 What's included in this deliverable version:
 
-1) `main.sh`: A Bash script that downloads the CVA6 Github repo and switches the repo's HEAD to the commit we used for the generation of the hardware trojan attack.
+1) `main.sh`: A Bash script that downloads the CVA6 Github repo and switches the repo's HEAD to the latest commit we used for the implementation of the IRT trojans.
 The script creates a "DIFFs.txt" log file with the differences between the original repo RTL code and the trojan-RTL code.
 The trojan-RTL code is copied to the appropriate CVA6 directories and the generation of a new trojan-CVA6 bitstream is initiated.
-The final outcomes are the "ariane_xilinx.mcs" and "ariane_xilinx.bit" files that can be loaded in a Genesys2 board for testing.
+The final outcomes are the "ariane_xilinx.mcs" and "ariane_xilinx.bit" files that can be loaded on a Genesys2 board for testing.
 
 IMPORTANT: We are using the tools suggested in the CVA6 repository, for the generation of the trojan-bitstream.
-Therefore, for the Bash script to work correctly, it is assumed that a user has followed the steps described in the CVA6's repository guide to install the risc-v toolchain.
-Bofore running the Bash script, both the risc-v toolchain and Xilinx's Vivado should be in $PATH.
+Therefore, for the shell script to work correctly, it is assumed that a user has followed the steps described in the CVA6's repository guide to install the risc-v toolchain.
+Bofore running the shell script, both the risc-v toolchain and Xilinx's Vivado should be in `$PATH`.
 
-2) `./irt_rtl`: This folder contains the RTL code of the IRT-1 and IRT-2 trojans, as well as the necessary modifications to the rest of the CVA6 logic.
+2) `irt_rtl`: This folder contains the RTL code of the IRT-1 and IRT-2 trojans, as well as the necessary modifications to the rest of the CVA6 logic.
 
-## Create a bitstream:
+3) `bitstreams`: This fodler contains ready-to-use bitstreams of the CVA6 uArch with the IRT-1 and IRT-2 trojans.
+For each of the trojan-bistreams, a "clean" CVA6 bitstream is provided, which has the exact layout as the trojan-bitstream, without the inclusion of the trojan.
+Therefore, the bitstreams permit the experimentation on side-channel based hardware trojan detection methods.
+The bitstreams have been generated for the Genesys2 board.
+
+4) `stand_alone`: This folder contains the "uImage" and "fw_payload.bin" files that will be burned in the SD card to make it bootable.
+The Linux image in the SD card includes the LKMs `lkm_hwtj_array64.o` and `lkm_hwtj_array1K.o` that can be used as a target for the Integrity trojan attack.
+Upon loading, these LKMs allocate a space of 64 B or 1 KB inside the Kernel and print the starting address of it.
+Once the LKM is loaded, running the user process `irtX_trig_array.o` (where X is the number of the IRT trojan loaded), will triggers the hardware trojan attack and overwrite the contents of the space allocated by the LKM.
+Upon un-loading, the LKM prints the first and the last address of the allocated space along with their altered contents.
+If the attack was successful, the contents of the defined variable should have changed by the user process to the value `0xCBBBBBBBAAAAAAAD`.
+
+## Create a new IRT bitstream:
 ----------
 
 With the risc-v toolchain and Vivado in the $PATH just run:
@@ -50,7 +62,15 @@ The final `.mcs` and `.bit` files are copied in `./cva6/corev_apu/fpga/work-fpga
 
 ## Create an SD card:
 ----------
-To be released in the upcoming major repository update.
+
+While on a Linux system, attach an SD card and execute `lsblk` to find its device name (e.g., /dev/sdX).
+Then `cd` in the `stand_alone` folder and run:
+
+`./wr_img2sd.sh sdX` 
+where `sdX` is the SD device name printed through `lsblk`.
+
+The Linux image will be flushed in the SD card and the SD card will be ready for use with the CVA6.
+The Linux image will include three LKMs for experimentation, as well as the control software for IRT1 and IRT2 trojans.
 
 ## Run the Integrity experiment:
 ----------
