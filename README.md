@@ -1,5 +1,3 @@
-Hardware Trojans implemented for RISC-V uArchs.
-
 ## Interrupt-Resilient Hardware Trojans
 This repo includes the design logic of the Interrupt-Resilient Trojans or IRTs.
 The IRTs have been tested against the [CVA6](https://github.com/openhwgroup/cva6) RISC-V micro-architecture.
