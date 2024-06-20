@@ -86,7 +86,7 @@ To perform the attack, execute the respective `irtX_trig_array` binary providing
 For the 64 B space the `REPS` is equal to 8, while for the 1 KB the `REPS` is equal to 128.
 The `START_ADDRESS` is the one provided upon loading of the LKM.
 
-To view the changes on the addresses of the LKM, you need to unload it:
+To view the changes on the addresses of the LKM, you need to unload it:  
 `rmmod lkm_hwtj_array64.ko`
 
 For IRT-2, before the execution of the attack, the trojan needs to be enabled:
