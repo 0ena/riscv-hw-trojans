@@ -81,7 +81,6 @@ Once booted inside CVA6's Linux environment, load one of the `lkm_hwtj_array64.k
 This will print the starting address `START_ADDRESS` of the allocated space in the Kernel.
 
 To perform the attack, execute the respective `irtX_trig_array` binary providing it with the parameters `REPS` and `START_ADDRESS`:
-
 `irt1_trig_array.o REPS START_ADDRESS`
 
 For the 64 B space the `REPS` is equal to 8, while for the 1 KB the `REPS` is equal to 128.
@@ -92,7 +91,6 @@ To view the changes on the addresses of the LKM, you need to unload it in the fo
 
 For IRT-2, before the execution of the attack, the trojan needs to be enabled:
 `./irt2_start_add.o`
-
 To disable the IRT-2 trojan after the end of the attack, execute:
 `./irt2_stop_add.o`
 
