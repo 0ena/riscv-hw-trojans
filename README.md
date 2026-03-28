@@ -1,7 +1,13 @@
-## Interrupt-Resilient Hardware Trojans
+# Interrupt-Resilient Hardware Trojans
 This repo includes the design logic of the Interrupt-Resilient CPU hardare trojans or IRTs.
+Interrupt-resilient trojans can withstand non-deterministic OS-enforced context switching events during the a hardware trojan offensive, to reliably activate their hardware payloads.
+The IRTs have been tested on the [CVA6](https://github.com/openhwgroup/cva6) RISC-V micro-architecture.
+
+# Publication
 You can read more about IRTs in our [HOST 2024](https://ieeexplore.ieee.org/document/10545403) publication.
-If you are using the IRT designs in your work, we kindly request you to cite our paper:
+If you use IRTs in your academic work you can cite us:
+<details>
+<summary>IRT Publication</summary>
 
 ```
 @INPROCEEDINGS {10545403,
@@ -10,11 +16,10 @@ booktitle = {2024 IEEE International Symposium on Hardware Oriented Security and
 title = {Towards Practical Fabrication Stage Attacks Using Interrupt-Resilient Hardware Trojans},
 year = {2024},
 }
-
 ```
-The IRTs have been tested on the [CVA6](https://github.com/openhwgroup/cva6) RISC-V micro-architecture.
+</details>
 
-## File structure:
+# File structure:
 1) `main.sh`: A Bash script that downloads the CVA6 Github repo and switches the repo's HEAD to the latest commit we used for the implementation of the IRT trojans 
 The script creates a "DIFFs.txt" log file with the differences between the original repo RTL code and the trojan-RTL code.
 The trojan-RTL code is copied to the appropriate CVA6 directories and the generation of a new trojan-CVA6 bitstream is initiated 
@@ -41,7 +46,7 @@ If the attack was successful, the contents of the addresses should have changed 
 5) `src`: Includes the C files of the control software for the IRT-1 and IRT-2 trojans. 
 The provided Linux image includes the binary version of the control sfotware.
 
-## Create a new IRT bitstream:
+# Create a new IRT bitstream:
 ----------
 
 With the risc-v toolchain and Vivado in `$PATH` run:
@@ -56,7 +61,7 @@ Once implementation starts, to observe its course execute:
 
 The final `.mcs` and `.bit` files are copied in `./cva6/corev_apu/fpga/work-fpga` after the end of the implementation.
 
-## Create an SD card:
+# Create an SD card:
 ----------
 
 While on a Linux system, attach an SD card and execute `lsblk` to find its device name (e.g., /dev/sdX).  
@@ -68,7 +73,7 @@ where `sdX` is the SD device name printed through `lsblk`.
 The Linux image will be flushed in the SD card and the SD card will be ready for use with the CVA6.
 The Linux image will include three LKMs for experimentation, as well as the control software for IRT1 and IRT2 trojans.
 
-## Run the Integrity attack:
+# Run the Integrity attack:
 ----------
 Once booted inside CVA6's Linux environment, load one of the `lkm_hwtj_array64.ko` or `lkm_hwtj_array1K.ko` in the following way:
 
@@ -90,7 +95,7 @@ For IRT-2, before the execution of the attack, the trojan needs to be enabled:
 To disable the IRT-2 trojan after the end of the attack, execute:
 `./irt2_stop_add.o`
 
-## Run the Availability attack:
+# Run the Availability attack:
 ----------
 For the execution of the availability attack, follow the steps outlined in the integrity attack, but this time load the `lkm_hwtj_init.ko` LKM, to print the start addess if the `init_task` struct.
 Use the above mentioned control software binaries and change the `REPS` to an arbitrary big number (e.g., 1000).
